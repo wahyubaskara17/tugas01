@@ -1,0 +1,125 @@
+Q1 SAMPLE (query)
+sqlite> SELECT CategoryName FROM Category ORDER BY CategoryName; 
+
+Beverages
+Condiments
+Confections
+Dairy Products
+Grains/Cereals
+Meat/Poultry
+Produce
+Seafood
+
+Q2 STRING_FUNCTION (query)
+sqlite> SELECT DISTINCT ShipName, substr(ShipName, 0, instr(ShipName, '-')) as PreHyphen FROM 'Order' WHERE ShipName LIKE '%-%' ORDER BY ShipName ASC; 
+
+Bottom-Dollar Markets|Bottom
+Chop-suey Chinese|Chop
+GROSELLA-Restaurante|GROSELLA
+HILARION-Abastos|HILARION
+Hungry Owl All-Night Grocers|Hungry Owl All
+LILA-Supermercado|LILA
+LINO-Delicateses|LINO
+QUICK-Stop|QUICK
+Save-a-lot Markets|Save
+
+Q3 NORTHAMERICAN (query)
+sqlite> SELECT Id, ShipCountry,
+           CASE
+                  WHEN ShipCountry IN ('USA', 'Mexico','Canada')
+                  THEN 'NorthAmerica'
+                  ELSE 'OtherPlace'
+           END
+    FROM 'Order' WHERE Id >= 15445 ORDER BY Id ASC LIMIT 20; 
+   
+15445|France|OtherPlace
+15446|Italy|OtherPlace
+15447|Portugal|OtherPlace
+15448|Argentina|OtherPlace
+15449|Portugal|OtherPlace
+15450|Venezuela|OtherPlace
+15451|Brazil|OtherPlace
+15452|France|OtherPlace
+15453|France|OtherPlace
+15454|Canada|NorthAmerica
+15455|USA|NorthAmerica
+15456|France|OtherPlace
+15457|Mexico|NorthAmerica
+15458|USA|NorthAmerica
+15459|Germany|OtherPlace
+15460|Argentina|OtherPlace
+15461|Austria|OtherPlace
+15462|Austria|OtherPlace
+15463|Finland|OtherPlace
+15464|Brazil|OtherPlace
+
+Q4 DELAYPERCENT (query)
+sqlite> SELECT CompanyName, round(delayCnt * 100.0 / cnt, 2) AS pct FROM (
+          SELECT ShipVia, COUNT(*) AS cnt FROM 'Order' GROUP BY ShipVia
+         ) AS totalCnt
+    INNER JOIN (
+                SELECT ShipVia, COUNT(*) AS delaycnt FROM 'Order' WHERE ShippedDate > RequiredDate GROUP BY ShipVia
+               ) AS delayCnt ON totalCnt.ShipVia = delayCnt.ShipVia
+    INNER JOIN Shipper on totalCnt.ShipVia = Shipper.Id ORDER BY pct DESC;
+   
+Federal Shipping|23.61
+Speedy Express|23.46
+United Package|23.44
+
+Q5 AGGREGATES (query)
+sqlite> SELECT CategoryName, COUNT(*) AS CategoryCount, ROUND(AVG(UnitPrice), 2) AS AvgUnitPrice, MIN(UnitPrice) AS MinUnitPrice, MAX(UnitPrice) AS MaxUnitPrice, SUM(UnitsOnOrder) AS TotalUnitsOnOrder FROM Product INNER JOIN Category on CategoryId = Category.Id GROUP BY CategoryId HAVING CategoryCount > 10 ORDER BY CategoryId;
+
+Beverages|12|37.98|4.5|263.5|60
+Condiments|12|23.06|10|43.9|170
+Confections|13|25.16|9.2|81|180
+Seafood|12|20.68|6|62.5|120
+
+Q6 DISCONTINUED (query)
+sqlite> SELECT pname, CompanyName, ContactName FROM (
+          SELECT pname, min(OrderDate), CompanyName, ContactName FROM (
+                SELECT Id AS pid, ProductName AS pname FROM Product WHERE Discontinued != 0
+               ) as discontinued
+          INNER JOIN OrderDetail on ProductId = pid
+          INNER JOIN 'Order' on 'Order'.Id = OrderDetail.OrderId
+          INNER JOIN Customer on CustomerId = Customer.Id
+          GROUP BY pid
+        )ORDER BY pname ASC;
+   
+Alice Mutton|Consolidated Holdings|Elizabeth Brown
+Chef Anton's Gumbo Mix|Piccolo und mehr|Georg Pipps
+Guaraná Fantástica|Piccolo und mehr|Georg Pipps
+Mishi Kobe Niku|Old World Delicatessen|Rene Phillips
+Perth Pasties|Piccolo und mehr|Georg Pipps
+Rössle Sauerkraut|Piccolo und mehr|Georg Pipps
+Singaporean Hokkien Fried Mee|Vins et alcools Chevalier|Paul Henriot
+Thüringer Rostbratwurst|Piccolo und mehr|Georg Pipps
+
+Q7 ORDER_LAGS (query)
+sqlite> SELECT Id, OrderDate, PrevOrderDate, ROUND(julianday(OrderDate) - julianday(PrevOrderDate), 2) FROM (SELECT Id, OrderDate, LAG(OrderDate, 1, OrderDate) OVER (ORDER BY OrderDate ASC) AS PrevOrderDate FROM 'Order' WHERE CustomerId = 'BLONP' ORDER BY OrderDate ASC LIMIT 10);
+
+16766|2012-07-22 23:11:15|2012-07-22 23:11:15|0.0
+10265|2012-07-25|2012-07-22 23:11:15|2.03
+12594|2012-08-16 12:35:15|2012-07-25|22.52
+20249|2012-08-16 16:52:23|2012-08-16 12:35:15|0.18
+20882|2012-08-18 19:11:48|2012-08-16 16:52:23|2.1
+18443|2012-08-28 05:34:03|2012-08-18 19:11:48|9.43
+10297|2012-09-04|2012-08-28 05:34:03|6.77
+11694|2012-09-17 00:27:14|2012-09-04|13.02
+25613|2012-09-18 22:37:15|2012-09-17 00:27:14|1.92
+17361|2012-09-19 12:13:21|2012-09-18 22:37:15|0.57
+
+Q9 YOUNGBLOOD (query)
+sqlite> SELECT RegionDescription, FirstName, LastName, bday FROM (SELECT RegionId AS rid, MAX(Employee.Birthdate) AS bday FROM Employee
+        INNER JOIN EmployeeTerritory ON Employee.Id = EmployeeTerritory.EmployeeId
+        INNER JOIN Territory ON TerritoryId = Territory.Id GROUP BY RegionId)
+    INNER JOIN (SELECT FirstName, LastName, Birthdate, RegionId, EmployeeId FROM Employee
+                  INNER JOIN EmployeeTerritory ON Employee.Id = EmployeeTerritory.EmployeeId
+                  INNER JOIN Territory ON TerritoryId = Territory.Id
+               )
+               ON Birthdate = bday AND rid = RegionId
+    INNER JOIN Region ON Region.Id = RegionId GROUP BY EmployeeId ORDER BY rid;
+   
+Eastern|Steven|Buchanan|1987-03-04
+Western|Michael|Suyama|1995-07-02
+Northern|Anne|Dodsworth|1998-01-27
+Southern|Janet|Leverling|1995-08-30
